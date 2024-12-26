@@ -147,8 +147,8 @@ void print_cmp_time_lsh() {
 
 // Kernel to compute hash values for strings
 __global__ void hash_string_kernel_lsh(char *buf, int *bias, unsigned int *_p, unsigned int *_q, unsigned int *_r, int num_line, int len_shingle, int num_hash, int b, unsigned int *hash_result) {
-    int line_id = blockIdx.x;       // Line index
-    int hash_id = threadIdx.x;      // Hash index
+    int line_id = blockIdx.x;                 
+    int hash_id = blockIdx.y * blockDim.x + threadIdx.x; 
 
     unsigned int sum = 0;           // Intermediate hash sum
     unsigned int res = 0;           // Minimum hash value
@@ -222,7 +222,7 @@ void lsh_cuda(const std::string& filepath, const std::string& outputPath, int &_
     gpuErrchk(cudaMemcpy(bias_cuda, bias, sizeof(int) * (num_line + 1), cudaMemcpyHostToDevice));
     gpuErrchk(cudaMemcpy(buf_cuda, buf, sizeof(char) * bias[num_line], cudaMemcpyHostToDevice));
 
-    int blockSize = num_hash;
+    // int blockSize = num_hash;
     int numBlocks = num_line;
 
     total_comm += sizeof(int) * (num_line + 1) + sizeof(char) * bias[num_line];
@@ -230,8 +230,16 @@ void lsh_cuda(const std::string& filepath, const std::string& outputPath, int &_
     gpuErrchk(cudaGetLastError());
     time1 = std::chrono::high_resolution_clock::now();
 
+
+    int maxThreadsPerBlock = 1024; 
+    int blockSize = maxThreadsPerBlock; 
+    int numBlocksX = num_line;         
+    int numBlocksY = (num_hash + blockSize - 1) / blockSize; 
+
+    dim3 grid(numBlocksX, numBlocksY);
+    dim3 block(blockSize);
      // Execute hash kernel on GPU
-    hash_string_kernel_lsh<<<numBlocks, blockSize>>>(buf_cuda, bias_cuda, _p, _q, _r, num_line, len_shingle, num_hash, b, hash_result_cuda);
+    hash_string_kernel_lsh<<<grid, block>>>(buf_cuda, bias_cuda, _p, _q, _r, num_line, len_shingle, num_hash, b, hash_result_cuda);
     cudaDeviceSynchronize();
     gpuErrchk(cudaGetLastError());
 
