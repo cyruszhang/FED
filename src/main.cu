@@ -25,15 +25,17 @@ int main(int argc, char* argv[]) {
     if (cuda_status != cudaSuccess) {return 1;}
     cudaSetDevice(rank % deviceCount); // Assign GPU to the process
 
-    if (argc != 3) {
+    // Check for minimum required arguments
+    if (argc < 3) {
         if (rank == 0)
-            std::cerr << "Directory path require" << std::endl;
+            std::cerr << "Usage: " << argv[0] << " <input_dir> <output_dir> [-f]" << std::endl;
         MPI_Finalize();
         return 1;
     }
 
     std::string folderPath = argv[1]; // Input folder path
     std::string outputPath = argv[2]; // Output folder path
+    bool force_recalc = (argc > 3 && strcmp(argv[3], "-f") == 0); // Check for force flag
 
 
     vector<string> file_list;
@@ -92,7 +94,7 @@ int main(int argc, char* argv[]) {
         std::filesystem::path outputDir(outputPath);
         std::filesystem::path hashFilePath = outputDir / hashFilename;
 
-        if (std::filesystem::exists(hashFilePath)) {
+        if (!force_recalc && std::filesystem::exists(hashFilePath)) {
             // Read existing file size from the hash file
             std::ifstream inFile(hashFilePath, std::ios::binary | std::ios::ate);
             if (inFile) {
@@ -102,7 +104,7 @@ int main(int argc, char* argv[]) {
                 continue;
             }
         }
-        // Generate new minhash if file doesn't exist
+        // Generate new minhash if file doesn't exist or force flag is set
         lsh_cuda(fp, outputPath, file_size[i]);
     }
 
