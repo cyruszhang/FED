@@ -3,6 +3,8 @@
 #include <vector>
 #include <algorithm>
 #include <chrono>
+#include <filesystem>
+#include <fstream>
 
 #include "mpi.h"
 #include "param.h"
@@ -83,6 +85,24 @@ int main(int argc, char* argv[]) {
     auto time1 = std::chrono::high_resolution_clock::now();
     for (int i=start_index; i < end_index; i++) {
         const string &fp=file_list[i];
+        // Check if minhash file already exists
+        std::filesystem::path inputPath(fp);
+        std::string filename = inputPath.stem().string();
+        std::string hashFilename = filename + "_hashresult.bin";
+        std::filesystem::path outputDir(outputPath);
+        std::filesystem::path hashFilePath = outputDir / hashFilename;
+
+        if (std::filesystem::exists(hashFilePath)) {
+            // Read existing file size from the hash file
+            std::ifstream inFile(hashFilePath, std::ios::binary | std::ios::ate);
+            if (inFile) {
+                size_t fileSize = inFile.tellg();
+                file_size[i] = fileSize / (sizeof(unsigned int) * (num_hash + b));
+                inFile.close();
+                continue;
+            }
+        }
+        // Generate new minhash if file doesn't exist
         lsh_cuda(fp, outputPath, file_size[i]);
     }
 
