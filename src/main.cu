@@ -36,6 +36,28 @@ int main(int argc, char* argv[]) {
 
     vector<string> file_list;
     getFileList(file_list, folderPath); // Get list of files in the input folder
+
+    // Filter out unwanted files
+    file_list.erase(
+        std::remove_if(file_list.begin(), file_list.end(),
+            [](const string& path) {
+                std::filesystem::path fp(path);
+                std::string filename = fp.filename().string();
+                
+                // Skip if:
+                // 1. File starts with . (hidden files)
+                // 2. File starts with _ (temporary files)
+                // 3. File is not a regular file
+                // 4. File is empty
+                return filename[0] == '.' || 
+                       filename[0] == '_' ||
+                       !std::filesystem::is_regular_file(fp) ||
+                       std::filesystem::file_size(fp) == 0;
+            }
+        ),
+        file_list.end()
+    );
+
     sort(file_list.begin(), file_list.end()); // Sort files alphabetically
 
     int num_file = file_list.size(); // Total number of files
